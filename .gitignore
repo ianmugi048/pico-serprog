@@ -1,1 +1,11 @@
-build
+# CMake build output
+build/
+
+# Editor / IDE files
+.vscode/
+.idea/
+
+# Temporary files
+*.swp
+*.swo
+*~

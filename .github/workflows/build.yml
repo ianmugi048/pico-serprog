@@ -1,0 +1,84 @@
+name: Build pico-serprog
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    name: Build RP2040 firmware
+    runs-on: ubuntu-24.04
+
+    steps:
+      # Check out this repository and its pinned Pico SDK submodule.
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Install the tools required to compile RP2040 firmware.
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi \
+            libstdc++-arm-none-eabi-newlib
+
+      # Record the exact inputs used for this build.
+      - name: Record build environment
+        run: |
+          echo "=== Source commit ==="
+          git rev-parse HEAD
+
+          echo
+          echo "=== Pico SDK ==="
+          git -C pico-sdk rev-parse HEAD
+          git -C pico-sdk describe --tags --always
+
+          echo
+          echo "=== ARM GCC ==="
+          arm-none-eabi-gcc --version
+
+          echo
+          echo "=== CMake ==="
+          cmake --version
+
+          echo
+          echo "=== Ninja ==="
+          ninja --version
+
+      # Configure CMake for a Raspberry Pi Pico.
+      - name: Configure
+        run: |
+          cmake \
+            -S . \
+            -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPICO_BOARD=pico
+
+      # Compile the firmware.
+      - name: Build
+        run: |
+          cmake --build build --parallel
+
+      # Make sure the expected firmware was actually produced.
+      - name: Verify firmware
+        run: |
+          test -f build/pico_serprog.uf2
+          file build/pico_serprog.uf2
+          sha256sum build/pico_serprog.uf2
+
+      # Preserve the firmware as a downloadable GitHub Actions artifact.
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: pico-serprog-rp2040
+          path: |
+            build/pico_serprog.uf2
+            build/pico_serprog.elf
